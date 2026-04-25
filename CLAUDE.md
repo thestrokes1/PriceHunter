@@ -20,9 +20,9 @@ Claude tiene acceso a Render via API key.
 D:\Pricehunter
 ```
 
-## CREDENCIALES Y ACCESOS (nunca commitear)
+## CREDENCIALES Y ACCESOS (NUNCA en git — guardar en .env local)
 ```
-Render API key:  rnd_hJdKQnuz1Y7daw5iCcBUFwt4A9At
+Render API key:  [ROTATED — ver .env local o Render dashboard]
 Render owner ID: tea-d657ionpm1nc739k5mig
 GitHub user:     thestrokes1
 Email Gmail:     fathercyborg@gmail.com
@@ -296,7 +296,7 @@ POST /admin/scrape-all               → forzar scraping de toda la watchlist
 6. **Un archivo a la vez** — probar antes de pasar al siguiente
 7. **Mostrar en Chrome** después de cada cambio visual significativo
 8. **Screenshots** con Playwright headless para verificar UI sin interacción manual
-9. **Usar Render API** (`rnd_hJdKQnuz1Y7daw5iCcBUFwt4A9At`) para crear/gestionar servicios
+9. **Usar Render API** (key en `.env` local, variable `RENDER_API_KEY`) para crear/gestionar servicios
 10. **Tokens:** respuestas cortas. Código completo, explicaciones mínimas.
 
 ---
