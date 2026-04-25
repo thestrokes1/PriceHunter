@@ -32,7 +32,10 @@
       "Bash(xargs -I{} taskkill /PID {} /F)",
       "PowerShell(Get-NetTCPConnection *)",
       "WebFetch(domain:dashboard.render.com)",
-      "Bash(rm -f .python-version runtime.txt)"
+      "Bash(rm -f .python-version runtime.txt)",
+      "Bash(git rm *)",
+      "Bash(git commit *)",
+      "Bash(npx vercel *)"
     ]
   }
 }
