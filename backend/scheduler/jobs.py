@@ -34,10 +34,10 @@ async def scrape_watchlist():
             except Exception as e:
                 print(f"[scheduler] Error scraping {p.id}: {e}")
         await session.commit()
-    print(f"[scheduler] Done — {len(watchlist)} products checked")
+    print(f"[scheduler] Done - {len(watchlist)} products checked")
 
 
 def start_scheduler():
     scheduler.add_job(scrape_watchlist, IntervalTrigger(hours=6), id="scrape_watchlist", replace_existing=True)
     scheduler.start()
-    print("[scheduler] Started — scraping every 6h")
+    print("[scheduler] Started - scraping every 6h")

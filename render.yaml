@@ -8,9 +8,9 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: SECRET_KEY
-        sync: false
+        value: pricehunter-secret-2026
       - key: SCRAPE_API_KEY
-        sync: false
+        value: pricehunter-scrape-2026
       - key: EMAIL_SENDER
         sync: false
       - key: EMAIL_PASSWORD
@@ -19,5 +19,8 @@ services:
         sync: false
       - key: PYTHONPATH
         value: .
+      - key: USE_PLAYWRIGHT
+        value: "false"
     plan: free
     region: oregon
+    healthCheckPath: /health

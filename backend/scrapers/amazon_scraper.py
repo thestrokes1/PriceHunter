@@ -1,29 +1,39 @@
-"""Amazon.com scraper using Playwright to bypass anti-bot protection."""
+"""Amazon.com scraper.
+
+Local dev:  uses Playwright (headless Chrome) to bypass anti-bot.
+Production: uses httpx with realistic headers; Amazon may block some requests.
+            Set env var USE_PLAYWRIGHT=false to force httpx mode.
+"""
 import asyncio
+import os
 import random
 import re
 from concurrent.futures import ThreadPoolExecutor
 from bs4 import BeautifulSoup
-from .utils import clean_price, truncate
+from .utils import clean_price, get_amazon_headers, random_delay, truncate
 
 BASE_URL = "https://www.amazon.com/s?k={query}"
-
 _executor = ThreadPoolExecutor(max_workers=1)
 
+# Detect if we should use Playwright (local) or httpx (production)
+USE_PLAYWRIGHT = os.environ.get("USE_PLAYWRIGHT", "true").lower() != "false"
 
-def _sync_fetch_amazon_html(query: str) -> str:
-    """Run Playwright in its own thread+event loop to avoid conflicts with uvicorn."""
+
+# ---------------------------------------------------------------------------
+# Playwright path (local dev)
+# ---------------------------------------------------------------------------
+
+def _sync_playwright_fetch(query: str) -> str:
     import asyncio as _asyncio
     loop = _asyncio.new_event_loop()
     try:
-        return loop.run_until_complete(_fetch_amazon_html_inner(query))
+        return loop.run_until_complete(_playwright_fetch(query))
     finally:
         loop.close()
 
 
-async def _fetch_amazon_html_inner(query: str) -> str:
+async def _playwright_fetch(query: str) -> str:
     from playwright.async_api import async_playwright
-
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context(
@@ -36,29 +46,46 @@ async def _fetch_amazon_html_inner(query: str) -> str:
             locale="en-US",
         )
         page = await context.new_page()
-        url = BASE_URL.format(query=query.replace(" ", "+"))
-        await page.goto(url, wait_until="domcontentloaded", timeout=25000)
+        await page.goto(BASE_URL.format(query=query.replace(" ", "+")), wait_until="domcontentloaded", timeout=25000)
         await asyncio.sleep(random.uniform(1.5, 2.5))
         html = await page.content()
         await browser.close()
     return html
 
 
+# ---------------------------------------------------------------------------
+# httpx path (production / fallback)
+# ---------------------------------------------------------------------------
+
+async def _httpx_fetch(query: str) -> str:
+    import httpx
+    async with httpx.AsyncClient(timeout=20, follow_redirects=True, http2=True) as client:
+        await random_delay(2.0, 4.0)
+        resp = await client.get(
+            BASE_URL.format(query=query.replace(" ", "+")),
+            headers=get_amazon_headers(),
+        )
+        resp.raise_for_status()
+        return resp.text
+
+
+# ---------------------------------------------------------------------------
+# Parser (shared)
+# ---------------------------------------------------------------------------
+
 def _parse_items(html: str, limit: int) -> list[dict]:
     soup = BeautifulSoup(html, "lxml")
 
-    # Detect hard bot block (very short page with "robot" in title)
-    title_el = soup.find("title")
-    title_text = title_el.get_text() if title_el else ""
+    title_tag = soup.find("title")
+    title_text = title_tag.get_text() if title_tag else ""
     if "robot" in title_text.lower() or len(html) < 10000:
-        print("[Amazon] Bot/captcha page detected")
+        print("[Amazon] Bot/captcha page")
         return []
 
     items = soup.select("div[data-component-type='s-search-result']")[:limit]
     results = []
 
     for item in items:
-        # Title from h2 aria-label (most reliable) or h2 span text
         h2 = item.find("h2")
         if not h2:
             continue
@@ -66,16 +93,12 @@ def _parse_items(html: str, limit: int) -> list[dict]:
         if not title:
             continue
 
-        # Product link: first /dp/ link in the item
-        link_el = item.select_one("a[href*='/dp/']")
-        if not link_el:
-            link_el = item.select_one("a[href]")
+        link_el = item.select_one("a[href*='/dp/']") or item.select_one("a[href]")
         if not link_el:
             continue
         href = link_el.get("href", "")
         url = f"https://www.amazon.com{href.split('?')[0]}" if href.startswith("/") else href
 
-        # Price
         price_whole = item.select_one("span.a-price-whole")
         price_frac = item.select_one("span.a-price-fraction")
         if not price_whole:
@@ -90,18 +113,11 @@ def _parse_items(html: str, limit: int) -> list[dict]:
         if price <= 0:
             continue
 
-        # Currency — Amazon geo-localizes; from Argentina it shows ARS
         price_outer = item.select_one("span.a-price")
         price_text = price_outer.get_text(strip=True) if price_outer else ""
-        if "ARS" in price_text or (price > 500 and "$" in price_text[:5]):
-            currency = "ARS"
-        else:
-            currency = "USD"
+        currency = "ARS" if ("ARS" in price_text or price > 500) else "USD"
 
-        # Image
         img_el = item.select_one("img.s-image")
-
-        # Rating
         rating_el = item.select_one("span.a-icon-alt")
         rating = None
         if rating_el:
@@ -124,23 +140,31 @@ def _parse_items(html: str, limit: int) -> list[dict]:
     return results
 
 
-async def search_amazon(query: str, limit: int = 10) -> list[dict]:
-    try:
-        from playwright.async_api import async_playwright  # noqa: F401
-    except ImportError:
-        print("[Amazon] playwright not installed — skipping")
-        return []
+# ---------------------------------------------------------------------------
+# Public entry point
+# ---------------------------------------------------------------------------
 
+async def search_amazon(query: str, limit: int = 10) -> list[dict]:
     loop = asyncio.get_running_loop()
+
     for attempt in range(2):
         try:
             if attempt > 0:
                 await asyncio.sleep(3)
-            # Run Playwright in its own thread+loop to avoid uvicorn event-loop conflicts
-            html = await loop.run_in_executor(_executor, _sync_fetch_amazon_html, query)
+
+            if USE_PLAYWRIGHT:
+                try:
+                    html = await loop.run_in_executor(_executor, _sync_playwright_fetch, query)
+                except Exception as pw_err:
+                    print(f"[Amazon] Playwright failed: {pw_err} — falling back to httpx")
+                    html = await _httpx_fetch(query)
+            else:
+                html = await _httpx_fetch(query)
+
             results = _parse_items(html, limit)
             if results:
                 return results
+
         except Exception as e:
             print(f"[Amazon] Attempt {attempt + 1} error: {e}")
 
