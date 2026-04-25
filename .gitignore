@@ -1,12 +1,18 @@
 venv/
 __pycache__/
 *.pyc
+*.pyo
 .env
 *.db
+*.egg-info/
+build/
+.pytest_cache/
 
 node_modules/
 dist/
+frontend/dist/
 .vercel/
 
 .env.local
 *.log
+.DS_Store

@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(python -m venv venv)",
+      "Bash(curl -s -X POST https://api.render.com/v1/postgres -H 'Authorization: Bearer rnd_hJdKQnuz1Y7daw5iCcBUFwt4A9At' -H 'Content-Type: application/json' -d '{ *)",
+      "Bash(python -m json.tool)",
+      "Bash(curl -s 'https://api.render.com/v1/postgres?limit=10' -H 'Authorization: Bearer rnd_hJdKQnuz1Y7daw5iCcBUFwt4A9At')",
+      "Bash(curl -s https://api.render.com/v1/postgres/dpg-d7mdrc9f9bms73fv2h7g-a/connection-string -H 'Authorization: Bearer rnd_hJdKQnuz1Y7daw5iCcBUFwt4A9At')",
+      "Bash(awk '{print $2}')",
+      "Bash(xargs -I{} python3 -c \" import sys, json try: with open\\('{}'\\) as f: for line in f: try: obj = json.loads\\(line\\) if obj.get\\('type'\\) == 'assistant': for item in obj.get\\('message', {}\\).get\\('content', []\\): if item.get\\('type'\\) == 'tool_use': name = item.get\\('name', ''\\) if name == 'Bash': cmd = item.get\\('input', {}\\).get\\('command', ''\\).strip\\(\\) first = cmd.split\\(\\)[0] if cmd.split\\(\\) else '' if first in \\('sudo','timeout','env'\\): parts = cmd.split\\(\\) for i,p in enumerate\\(parts\\): if not p.startswith\\('-'\\) and i > 0: first = p; break print\\('BASH\\\\t' + first\\) elif name.startswith\\('mcp__'\\): print\\('MCP\\\\t' + name\\) except: pass except: pass \")",
+      "Bash(python3 *)",
+      "Bash(curl -s https://api.render.com/v1/postgres/dpg-d7mdrc9f9bms73fv2h7g-a -H 'Authorization: Bearer rnd_hJdKQnuz1Y7daw5iCcBUFwt4A9At')",
+      "Bash(D:/Pricehunter/venv/Scripts/python.exe -m json.tool)",
+      "Bash(pkill -f uvicorn)",
+      "Bash(npm create *)",
+      "Bash(npm install *)",
+      "Bash(npx tailwindcss *)",
+      "Bash(npm run *)",
+      "Bash(start chrome *)",
+      "Bash(git add *)"
+    ]
+  }
+}
