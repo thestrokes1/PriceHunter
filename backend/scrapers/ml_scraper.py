@@ -20,7 +20,7 @@ async def search_ml(query: str, limit: int = 10) -> list[dict]:
         print(f"[ML] Error fetching: {e}")
         return []
 
-    soup = BeautifulSoup(resp.text, "lxml")
+    soup = BeautifulSoup(resp.text, "html.parser")
     items = soup.select("li.ui-search-layout__item")[:limit]
     results = []
 

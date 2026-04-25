@@ -74,7 +74,7 @@ async def _httpx_fetch(query: str) -> str:
 # ---------------------------------------------------------------------------
 
 def _parse_items(html: str, limit: int) -> list[dict]:
-    soup = BeautifulSoup(html, "lxml")
+    soup = BeautifulSoup(html, "html.parser")
 
     title_tag = soup.find("title")
     title_text = title_tag.get_text() if title_tag else ""
