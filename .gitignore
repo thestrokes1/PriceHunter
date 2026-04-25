@@ -16,3 +16,7 @@ frontend/dist/
 .env.local
 *.log
 .DS_Store
+.playwright-mcp/
+ml_debug.html
+amazon_debug.html
+uvicorn_*.log
