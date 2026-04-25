@@ -1,0 +1,45 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e5]:
+      - link "PriceHunter" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - img [ref=e7]
+        - generic [ref=e10]: PriceHunter
+      - generic [ref=e11]:
+        - generic [ref=e12]:
+          - img [ref=e13]
+          - textbox "Buscar en MercadoLibre y Amazon..." [ref=e16]
+        - button "Buscar" [ref=e17] [cursor=pointer]
+      - generic [ref=e18]:
+        - link "Watchlist" [ref=e19] [cursor=pointer]:
+          - /url: /watchlist
+          - img [ref=e20]
+          - generic [ref=e22]: Watchlist
+        - link "Admin" [ref=e23] [cursor=pointer]:
+          - /url: /admin
+          - img [ref=e24]
+          - generic [ref=e29]: Admin
+  - main [ref=e30]:
+    - generic [ref=e31]:
+      - generic [ref=e32]:
+        - generic [ref=e33]:
+          - img [ref=e34]
+          - heading "PriceHunter" [level=1] [ref=e37]
+        - paragraph [ref=e38]: Compara precios en MercadoLibre y Amazon al mismo tiempo
+        - generic [ref=e39]:
+          - generic [ref=e40]:
+            - img [ref=e41]
+            - textbox "¿Qué estás buscando?" [ref=e44]
+          - button "Buscar" [ref=e45] [cursor=pointer]
+      - heading "Categorías" [level=2] [ref=e47]
+      - generic [ref=e48]:
+        - heading "Búsquedas populares" [level=2] [ref=e49]
+        - generic [ref=e50]:
+          - button "iPhone 15" [ref=e51] [cursor=pointer]
+          - button "MacBook Air" [ref=e52] [cursor=pointer]
+          - button "Samsung Galaxy" [ref=e53] [cursor=pointer]
+          - button "AirPods" [ref=e54] [cursor=pointer]
+          - button "PlayStation 5" [ref=e55] [cursor=pointer]
+          - button "Notebook HP" [ref=e56] [cursor=pointer]
+          - button "Arduino" [ref=e57] [cursor=pointer]
+          - button "Monitor 4K" [ref=e58] [cursor=pointer]

@@ -18,7 +18,21 @@
       "Bash(npx tailwindcss *)",
       "Bash(npm run *)",
       "Bash(start chrome *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git remote *)",
+      "Bash(git push *)",
+      "Bash(curl -sv \"http://localhost:8001/search?q=notebook&limit=3\")",
+      "Bash(git commit -m 'security: remove exposed Render API key from CLAUDE.md *)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill /PID 8816 /F)",
+      "Bash(curl -sv \"http://localhost:8002/search?q=notebook&limit=5\")",
+      "Bash(D:/Pricehunter/venv/Scripts/python.exe -c ' *)",
+      "Bash(awk '{print $5}')",
+      "Bash(xargs -I{} taskkill /PID {} /F)",
+      "PowerShell(Get-NetTCPConnection *)",
+      "WebFetch(domain:dashboard.render.com)",
+      "Bash(rm -f .python-version runtime.txt)"
     ]
   }
 }
