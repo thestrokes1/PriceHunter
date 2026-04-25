@@ -47,10 +47,10 @@ async def search(
     if cat:
         category_id = await db.scalar(select(Category.id).where(Category.slug == cat))
 
-    ml_results, amazon_results = await asyncio.gather(
-        search_ml(q, limit),
-        search_amazon(q, limit),
-    )
+    # Run sequentially: ML first (fast), then Amazon (Playwright ~10s)
+    # Running in parallel caused event-loop conflicts between httpx and Playwright on Windows
+    ml_results = await search_ml(q, limit)
+    amazon_results = await search_amazon(q, limit)
 
     saved_ml = []
     for item in ml_results:
