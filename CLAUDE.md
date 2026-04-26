@@ -117,19 +117,22 @@ POST /admin/scrape-all
 | Scraper | Local | Producción (Render) | Motivo |
 |---|---|---|---|
 | MercadoLibre | ✅ funciona | ✅ funciona | httpx puro, sin anti-bot |
-| Amazon | ✅ Playwright | ❌ 0 resultados | httpx bloqueado por anti-bot |
-| Frávega | ✅ Playwright | ❌ 0 resultados | Playwright no instalado en Render |
+| Amazon | ✅ Playwright | ✅ **funciona** (curl_cffi) | curl_cffi imita TLS fingerprint de Chrome |
+| Frávega | ✅ funciona | ❌ geo-blocked | Cloudflare de Frávega bloquea IPs no-AR |
 
-**Workaround en prod:** Amazon/Frávega retornan `[]` silenciosamente. SearchResults oculta columnas vacías.
-**Solución futura:** ScraperAPI / Zyte / proxy argentino para Amazon. Frávega httpx es viable (sin anti-bot fuerte).
+**Amazon en producción:** resuelto con `curl_cffi==0.7.4` (`impersonate="chrome124"`).
+**Frávega en producción:** geo-blocked por Cloudflare. Solo funciona desde IP argentina (local dev).
+Solución futura: proxy AR (<$5/mes Webshare) — baja prioridad para portfolio.
+
+**Técnica de parseo Frávega:** lee `__NEXT_DATA__` Apollo GraphQL cache en JSON — más robusto que scraping HTML.
 
 ---
 
 ## MEJORAS PENDIENTES (priorizadas)
 
 ### P0 — Crítico para portfolio
-- [ ] **Frávega httpx fallback** — implementar `_httpx_fetch` en fravega_scraper para producción (Frávega no tiene anti-bot fuerte, debería funcionar)
-- [ ] **Amazon via ScraperAPI o proxy** — solución definitiva para prod. ScraperAPI tiene free tier.
+- [x] **Amazon en producción** — resuelto con curl_cffi (impersonate Chrome TLS)
+- [ ] **Frávega en producción** — geo-blocked por Cloudflare. Requiere proxy AR (~$3/mes). Baja prioridad.
 
 ### P1 — UX importante
 - [ ] **Ordenar resultados por precio** — botón sort asc/desc en SearchResults
