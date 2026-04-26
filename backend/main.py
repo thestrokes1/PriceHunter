@@ -42,12 +42,35 @@ app.include_router(admin.router)
 @app.get("/debug/fravega")
 async def debug_fravega():
     """Temporary: diagnose what Render actually receives from Fravega."""
-    from backend.scrapers.fravega_scraper import _curl_fetch, _parse_next_data, _parse_articles
+    from backend.scrapers.fravega_scraper import _parse_next_data
     from bs4 import BeautifulSoup
-    import json
-    html = await _curl_fetch("televisor")
+    import json, traceback
+    from backend.config import settings
+
+    url = "https://www.fravega.com/l/?keyword=televisor"
+    errors = []
+    html = ""
+
+    # Try curl_cffi directly and capture the real error
+    try:
+        from curl_cffi.requests import AsyncSession
+        async with AsyncSession() as session:
+            resp = await session.get(url, impersonate="chrome124", timeout=12)
+            html = resp.text
+            errors.append(f"curl_cffi OK: status={resp.status_code} len={len(html)}")
+    except Exception as e:
+        errors.append(f"curl_cffi FAIL: {type(e).__name__}: {e}")
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+                resp = await client.get(url, headers={"User-Agent": "Mozilla/5.0 Chrome/124"})
+                html = resp.text
+                errors.append(f"httpx fallback OK: status={resp.status_code} len={len(html)}")
+        except Exception as e2:
+            errors.append(f"httpx FAIL: {type(e2).__name__}: {e2}")
+
     if not html:
-        return {"error": "empty response", "html_len": 0}
+        return {"errors": errors, "html_len": 0}
     soup = BeautifulSoup(html, "html.parser")
     nd = soup.find("script", id="__NEXT_DATA__")
     articles = soup.select("article")
