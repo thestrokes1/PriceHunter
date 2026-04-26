@@ -4,9 +4,9 @@
 ---
 
 ## ESTADO GENERAL
-**Fase actual:** 5 — DEPLOY COMPLETO  
-**Último paso:** Backend Render LIVE + Frontend Vercel LIVE  
-**Próximo paso:** README con screenshots, mejoras opcionales
+**Fase actual:** Post-deploy — mejoras iterativas  
+**Último paso:** Frávega httpx prod + Admin pagination + UX fixes (search speed, navbar, titles)  
+**Próximo paso:** Ver MEJORAS PENDIENTES en CLAUDE.md (priorizadas P0→P3)
 
 ---
 
@@ -53,8 +53,19 @@
 - [x] Frontend → Vercel (pricehunter-pied.vercel.app)
 - [x] DB allowlist abierto a 0.0.0.0/0 para Render
 - [x] .gitattributes forzando LF (fix CRLF de Windows)
-- [ ] README con screenshots
-- [ ] Rotar Render API key comprometida
+- [ ] README con screenshots (P2)
+- [ ] Rotar Render API key comprometida (P2)
+
+### MEJORAS POST-DEPLOY ✅ (sesión 2026-04-26)
+- [x] Frávega como tercer scraper (Playwright local)
+- [x] Frávega httpx fallback para producción
+- [x] Amazon timeout 8s, sin retry (era 2×20s = 40s+)
+- [x] Navbar sync con URL query param
+- [x] Columnas vacías ocultas en SearchResults
+- [x] Grid adaptativo (1/2/3 cols según resultados)
+- [x] Page title: "PriceHunter — Comparador de precios"
+- [x] Admin: paginación (20/página) + filtro por fuente + badge Frávega
+- [x] CLAUDE.md reescrito con estado real y backlog priorizado
 
 ---
 
