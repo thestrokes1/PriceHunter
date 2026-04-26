@@ -66,13 +66,23 @@ async def _playwright_fetch(query: str) -> str:
 # ---------------------------------------------------------------------------
 
 async def _httpx_fetch(query: str) -> str:
+    """curl_cffi primary (mimics Chrome TLS fingerprint), httpx as last resort."""
+    url = BASE_URL.format(query=query.replace(" ", "+"))
+    await random_delay(1.0, 2.0)
+    try:
+        from curl_cffi.requests import AsyncSession
+        async with AsyncSession() as session:
+            resp = await session.get(url, impersonate="chrome124", timeout=12)
+            resp.raise_for_status()
+            return resp.text
+    except ImportError:
+        pass
+    except Exception as e:
+        print(f"[Amazon] curl_cffi error: {e}")
+
     import httpx
     async with httpx.AsyncClient(timeout=8, follow_redirects=True, http2=True) as client:
-        await random_delay(1.0, 2.0)
-        resp = await client.get(
-            BASE_URL.format(query=query.replace(" ", "+")),
-            headers=get_amazon_headers(),
-        )
+        resp = await client.get(url, headers=get_amazon_headers())
         resp.raise_for_status()
         return resp.text
 
@@ -123,7 +133,8 @@ def _parse_items(html: str, limit: int) -> list[dict]:
 
         price_outer = item.select_one("span.a-price")
         price_text = price_outer.get_text(strip=True) if price_outer else ""
-        currency = "ARS" if ("ARS" in price_text or price > 500) else "USD"
+        # ARS prices on amazon.com are typically >10,000; USD prices are <10,000
+        currency = "ARS" if ("ARS" in price_text or price > 10000) else "USD"
 
         img_el = item.select_one("img.s-image")
         rating_el = item.select_one("span.a-icon-alt")

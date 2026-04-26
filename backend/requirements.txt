@@ -9,3 +9,4 @@ brotli==1.1.0
 beautifulsoup4==4.12.3
 apscheduler==3.10.4
 python-dotenv==1.0.1
+curl_cffi==0.7.4
