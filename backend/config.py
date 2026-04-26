@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     email_password: str = ""
     email_receiver: str = ""
     vite_api_url: str = "http://localhost:8000"
+    fravega_proxy: str = ""          # e.g. http://user:pass@ar-host:port
 
 
 settings = Settings()

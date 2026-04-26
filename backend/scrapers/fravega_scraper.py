@@ -62,12 +62,17 @@ async def _playwright_fetch(query: str) -> str:
 
 
 async def _curl_fetch(query: str) -> str:
+    from backend.config import settings
     url = SEARCH_URL.format(query=query.replace(" ", "+"))
+    proxy = settings.fravega_proxy or None
     await random_delay(0.5, 1.5)
     try:
         from curl_cffi.requests import AsyncSession
+        kwargs = dict(impersonate="chrome124", timeout=12)
+        if proxy:
+            kwargs["proxy"] = proxy
         async with AsyncSession() as session:
-            resp = await session.get(url, impersonate="chrome124", timeout=12)
+            resp = await session.get(url, **kwargs)
             resp.raise_for_status()
             return resp.text
     except ImportError:
@@ -76,7 +81,10 @@ async def _curl_fetch(query: str) -> str:
         print(f"[Fravega] curl_cffi error: {e}")
     try:
         import httpx
-        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+        client_kwargs = dict(timeout=10, follow_redirects=True)
+        if proxy:
+            client_kwargs["proxy"] = proxy
+        async with httpx.AsyncClient(**client_kwargs) as client:
             resp = await client.get(url, headers={
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36",
                 "Accept-Language": "es-AR,es;q=0.9",
