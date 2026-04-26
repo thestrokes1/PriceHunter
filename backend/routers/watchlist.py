@@ -70,6 +70,20 @@ async def add_to_watchlist(body: WatchlistCreate, db: AsyncSession = Depends(get
     return {"id": w.id, "product_id": w.product_id, "precio_al_agregar": current_price}
 
 
+class WatchlistUpdate(BaseModel):
+    alerta_pct: float = Field(ge=0, le=100)
+
+
+@router.patch("/{watchlist_id}")
+async def update_watchlist(watchlist_id: int, body: WatchlistUpdate, db: AsyncSession = Depends(get_db)):
+    w = await db.scalar(select(Watchlist).where(Watchlist.id == watchlist_id))
+    if not w:
+        raise HTTPException(404, "Watchlist entry not found")
+    w.alerta_pct = body.alerta_pct
+    await db.flush()
+    return {"id": w.id, "alerta_pct": w.alerta_pct}
+
+
 @router.delete("/{watchlist_id}", status_code=204)
 async def remove_from_watchlist(watchlist_id: int, db: AsyncSession = Depends(get_db)):
     w = await db.scalar(select(Watchlist).where(Watchlist.id == watchlist_id))

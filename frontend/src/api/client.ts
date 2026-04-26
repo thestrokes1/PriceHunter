@@ -99,6 +99,8 @@ export const endpoints = {
   watchlist: () => api.get<WatchlistItem[]>("/watchlist"),
   addToWatchlist: (product_id: number, alerta_pct = 5) =>
     api.post("/watchlist", { product_id, alerta_pct }),
+  updateWatchlistAlert: (id: number, alerta_pct: number) =>
+    api.patch(`/watchlist/${id}`, { alerta_pct }),
   removeFromWatchlist: (id: number) => api.delete(`/watchlist/${id}`),
   adminProducts: (source?: string, cat?: string) =>
     api.get<AdminProduct[]>("/admin/products", { params: { source, cat } }),
