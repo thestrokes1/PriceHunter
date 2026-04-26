@@ -102,11 +102,13 @@ async def seed_history(db: AsyncSession = Depends(get_db)):
 
     for w in watchlist:
         p = w.product
-        if len(p.price_history) >= 15:
-            continue  # already has enough real data
-
         if not p.price_history:
             continue
+
+        oldest = min(ph.scraped_at for ph in p.price_history)
+        span_days = (datetime.utcnow() - oldest).days
+        if span_days >= 20:
+            continue  # already has real multi-day history
 
         latest = p.price_history[-1]
         base_price = latest.price
