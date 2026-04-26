@@ -154,11 +154,11 @@ POST /admin/scrape-all
 - [x] **Meta tags SEO** — description, og:title, og:description, og:url, og:type, twitter:card en index.html
 
 ### P2 — Calidad y completitud
-- [ ] **README con screenshots** — capturas reales del sitio para el portfolio
+- [x] **README con screenshots** — docs/screenshots/ con home, search, product_detail (30d chart), watchlist
+- [x] **Gráfico con más datos** — POST /admin/seed-history genera 30 días de historial sintético
 - [ ] **Rotar Render API key** — la key anterior fue expuesta (ver .env local)
 - [ ] **DB expira 2026-05-25** — crear nueva instancia PostgreSQL en Render antes de esa fecha
 - [ ] **APScheduler: scraping de products** — actualmente solo scrapea watchlist, no búsquedas frecuentes
-- [ ] **Gráfico con más datos** — el historial necesita tiempo para acumular puntos; agregar datos demo
 
 ### P3 — Mejoras futuras
 - [ ] Light/dark mode toggle
