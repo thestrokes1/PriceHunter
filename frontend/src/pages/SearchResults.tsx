@@ -93,7 +93,7 @@ export default function SearchResults() {
     else addMutation.mutate(id);
   };
 
-  const columns = [
+  const allColumns = [
     {
       key: "ml",
       label: "MercadoLibre",
@@ -120,6 +120,11 @@ export default function SearchResults() {
     },
   ];
 
+  // While loading show all 3 columns (skeletons). Once loaded, hide sources with 0 results.
+  const columns = isLoading
+    ? allColumns
+    : allColumns.filter((col) => col.products.length > 0);
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-white mb-6">
@@ -133,7 +138,7 @@ export default function SearchResults() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className={`grid grid-cols-1 gap-6 ${columns.length === 1 ? "max-w-xl" : columns.length === 2 ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
         {columns.map((col) => (
           <ResultColumn
             key={col.key}

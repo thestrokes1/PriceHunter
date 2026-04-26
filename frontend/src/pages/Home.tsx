@@ -29,7 +29,7 @@ export default function Home() {
           </h1>
         </div>
         <p className="text-slate-400 text-lg mb-8">
-          Compara precios en MercadoLibre y Amazon al mismo tiempo
+          Compara precios en MercadoLibre, Frávega y Amazon al mismo tiempo
         </p>
         <form onSubmit={handleSearch} className="max-w-xl mx-auto flex gap-2">
           <div className="relative flex-1">

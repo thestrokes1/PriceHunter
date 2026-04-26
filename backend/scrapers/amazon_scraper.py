@@ -67,8 +67,8 @@ async def _playwright_fetch(query: str) -> str:
 
 async def _httpx_fetch(query: str) -> str:
     import httpx
-    async with httpx.AsyncClient(timeout=20, follow_redirects=True, http2=True) as client:
-        await random_delay(2.0, 4.0)
+    async with httpx.AsyncClient(timeout=8, follow_redirects=True, http2=True) as client:
+        await random_delay(1.0, 2.0)
         resp = await client.get(
             BASE_URL.format(query=query.replace(" ", "+")),
             headers=get_amazon_headers(),
@@ -155,26 +155,22 @@ def _parse_items(html: str, limit: int) -> list[dict]:
 async def search_amazon(query: str, limit: int = 10) -> list[dict]:
     loop = asyncio.get_running_loop()
 
-    for attempt in range(2):
-        try:
-            if attempt > 0:
-                await asyncio.sleep(3)
-
-            if USE_PLAYWRIGHT:
-                try:
-                    html = await loop.run_in_executor(_executor, _sync_playwright_fetch, query)
-                except Exception as pw_err:
-                    print(f"[Amazon] Playwright failed: {pw_err} — falling back to httpx")
-                    html = await _httpx_fetch(query)
-            else:
+    try:
+        if USE_PLAYWRIGHT:
+            try:
+                html = await loop.run_in_executor(_executor, _sync_playwright_fetch, query)
+            except Exception as pw_err:
+                print(f"[Amazon] Playwright failed: {pw_err} — falling back to httpx")
                 html = await _httpx_fetch(query)
+        else:
+            html = await _httpx_fetch(query)
 
-            results = _parse_items(html, limit)
-            if results:
-                return results
+        results = _parse_items(html, limit)
+        if results:
+            return results
 
-        except Exception as e:
-            print(f"[Amazon] Attempt {attempt + 1} error: {e}")
+    except Exception as e:
+        print(f"[Amazon] Error: {e}")
 
-    print("[Amazon] No results after retries")
+    print("[Amazon] No results")
     return []

@@ -1,10 +1,15 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Search, Bookmark, LayoutDashboard, TrendingUp } from "lucide-react";
 
 export default function Navbar() {
-  const [q, setQ] = useState("");
+  const [searchParams] = useSearchParams();
+  const [q, setQ] = useState(searchParams.get("q") ?? "");
   const navigate = useNavigate();
+
+  useEffect(() => {
+    setQ(searchParams.get("q") ?? "");
+  }, [searchParams]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +32,7 @@ export default function Navbar() {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar en MercadoLibre y Amazon..."
+              placeholder="Buscar en MercadoLibre, Frávega y Amazon..."
               className="w-full bg-slate-700 text-white placeholder-slate-400 rounded-lg pl-9 pr-4 py-2 text-sm border border-slate-600 focus:outline-none focus:border-blue-500"
             />
           </div>
