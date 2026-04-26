@@ -21,8 +21,6 @@ services:
         value: .
       - key: USE_PLAYWRIGHT
         value: "false"
-      - key: PYTHON_VERSION
-        value: "3.11.9"
     plan: free
     region: oregon
     healthCheckPath: /health
