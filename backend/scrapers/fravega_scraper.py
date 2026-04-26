@@ -1,32 +1,47 @@
-"""Fravega scraper via Playwright DOM (Fravega no tiene anti-bot)."""
+"""Fravega scraper.
+
+Local:       Playwright (headless Chrome).
+Production:  httpx fallback (Fravega has no strong anti-bot).
+"""
 import re
 import asyncio
 import random
 from bs4 import BeautifulSoup
-from .utils import truncate, clean_price
+from .utils import truncate, random_delay, get_ml_headers
 
 BASE_URL = "https://www.fravega.com"
 SEARCH_URL = "https://www.fravega.com/l/?keyword={query}"
 
 
 async def search_fravega(query: str, limit: int = 10) -> list[dict]:
+    html = await _playwright_fetch(query) if _has_playwright() else await _httpx_fetch(query)
+    return _parse(html, limit) if html else []
+
+
+def _has_playwright() -> bool:
+    try:
+        import playwright  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
+async def _playwright_fetch(query: str) -> str:
     try:
         from playwright.async_api import async_playwright
-    except ImportError:
-        return []
-
-    try:
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                user_agent=(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                )
             )
             await page.goto(
                 SEARCH_URL.format(query=query.replace(" ", "+")),
                 wait_until="domcontentloaded",
                 timeout=20000,
             )
-            # Wait for product articles to appear
             try:
                 await page.wait_for_selector("article", timeout=8000)
             except Exception:
@@ -34,11 +49,31 @@ async def search_fravega(query: str, limit: int = 10) -> list[dict]:
             await asyncio.sleep(random.uniform(1.0, 2.0))
             html = await page.content()
             await browser.close()
+            return html
     except Exception as e:
         print(f"[Fravega] Playwright error: {e}")
-        return []
+        return ""
 
-    return _parse(html, limit)
+
+async def _httpx_fetch(query: str) -> str:
+    try:
+        import httpx
+        headers = {
+            **get_ml_headers(),
+            "Accept-Language": "es-AR,es;q=0.9",
+            "Referer": "https://www.fravega.com/",
+        }
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+            await random_delay(0.5, 1.5)
+            resp = await client.get(
+                SEARCH_URL.format(query=query.replace(" ", "+")),
+                headers=headers,
+            )
+            resp.raise_for_status()
+            return resp.text
+    except Exception as e:
+        print(f"[Fravega] httpx error: {e}")
+        return ""
 
 
 def _parse(html: str, limit: int) -> list[dict]:
@@ -53,11 +88,9 @@ def _parse(html: str, limit: int) -> list[dict]:
         href = link_el.get("href", "")
         url = f"{BASE_URL}{href}" if href.startswith("/") else href
 
-        # Image
         img_el = article.select_one("img[src]")
         imagen_url = img_el.get("src") if img_el else None
 
-        # Title — first meaningful span text
         title = None
         for span in article.find_all("span"):
             txt = span.get_text(strip=True)
@@ -67,18 +100,14 @@ def _parse(html: str, limit: int) -> list[dict]:
         if not title:
             continue
 
-        # Price — look for sale price pattern ($999.999)
         price = None
-        currency = "ARS"
         for span in article.find_all("span"):
             txt = span.get_text(strip=True)
-            # Match Argentine price format: $1.234.567 or $123.456
             m = re.match(r"^\$[\d.]+$", txt)
             if m:
                 raw = txt.replace("$", "").replace(".", "")
                 try:
                     candidate = float(raw)
-                    # Take the lower price (sale price, not list price)
                     if price is None or candidate < price:
                         price = candidate
                 except ValueError:
@@ -92,7 +121,7 @@ def _parse(html: str, limit: int) -> list[dict]:
             "url": url,
             "source": "fravega",
             "price": price,
-            "currency": currency,
+            "currency": "ARS",
             "imagen_url": imagen_url,
             "rating": None,
             "reviews": None,
