@@ -39,6 +39,46 @@ app.include_router(watchlist.router)
 app.include_router(admin.router)
 
 
+@app.get("/debug/fravega")
+async def debug_fravega():
+    """Temporary: diagnose what Render actually receives from Fravega."""
+    from backend.scrapers.fravega_scraper import _curl_fetch, _parse_next_data, _parse_articles
+    from bs4 import BeautifulSoup
+    import json
+    html = await _curl_fetch("televisor")
+    if not html:
+        return {"error": "empty response", "html_len": 0}
+    soup = BeautifulSoup(html, "html.parser")
+    nd = soup.find("script", id="__NEXT_DATA__")
+    articles = soup.select("article")
+    next_data_keys = []
+    products_in_nd = 0
+    if nd:
+        try:
+            data = json.loads(nd.string)
+            apollo = data["props"]["pageProps"].get("__APOLLO_STATE__", {})
+            root = apollo.get("ROOT_QUERY", {})
+            items_key = next((k for k in root if k.startswith("items(")), None)
+            if items_key:
+                items = root[items_key]
+                rk = next((k for k in items if k.startswith("results(")), None)
+                if rk:
+                    products_in_nd = len(items[rk])
+            next_data_keys = list(apollo.keys())[:5]
+        except Exception as e:
+            next_data_keys = [f"parse error: {e}"]
+    parsed = _parse_next_data(html, 5)
+    return {
+        "html_len": len(html),
+        "has_next_data": nd is not None,
+        "next_data_keys": next_data_keys,
+        "products_in_apollo": products_in_nd,
+        "articles_in_html": len(articles),
+        "parsed_results": len(parsed),
+        "sample": parsed[0] if parsed else None,
+    }
+
+
 @app.get("/health")
 async def health():
     try:
