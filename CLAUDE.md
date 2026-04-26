@@ -147,11 +147,11 @@ POST /admin/scrape-all
 - [ ] **Frávega en producción** — geo-blocked por Cloudflare. Requiere proxy AR (~$3/mes). Baja prioridad.
 
 ### P1 — UX importante
-- [ ] **Ordenar resultados por precio** — botón sort asc/desc en SearchResults
-- [ ] **Filtro por fuente** — checkbox ML / Frávega / Amazon en SearchResults
-- [ ] **Toast notifications** — feedback al agregar/quitar watchlist, al scrapear
-- [ ] **Watchlist: alerta configurable** — editar el % de alerta por producto
-- [ ] **Meta tags SEO** — og:title, og:description, og:image en index.html
+- [x] **Ordenar resultados por precio** — botón cicla none/asc/desc, aplica a todas las columnas
+- [x] **Filtro por fuente** — toggles ML/Frávega/Amazon, oculta columnas sin resultados
+- [x] **Toast notifications** — verde/rojo en SearchResults y ProductDetail (3s auto-dismiss)
+- [x] **Watchlist: alerta configurable** — columna editable inline, click → input → Enter/blur → PATCH /watchlist/{id}
+- [x] **Meta tags SEO** — description, og:title, og:description, og:url, og:type, twitter:card en index.html
 
 ### P2 — Calidad y completitud
 - [ ] **README con screenshots** — capturas reales del sitio para el portfolio

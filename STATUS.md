@@ -105,7 +105,19 @@
 - [x] Diagnóstico Frávega prod: 919 bytes = Cloudflare JS challenge (no geo-block)
 - [x] Tres opciones documentadas (A/B/C) para resolver Frávega en prod sin costo
 - [ ] **PENDIENTE: elegir opción A/B/C para Frávega prod**
-- [ ] **PENDIENTE: P1 UX — sort por precio, filtros, toasts**
+
+### Sesión 2026-04-26 (noche) — P1 UX
+- [x] Fix grid layout: lg:grid-cols-2 → md:grid-cols-2 (viewport ~929px no activaba lg=1024px)
+- [x] Sort por precio: botón cicla none→asc→desc, aplica a todas las columnas simultáneamente
+- [x] Filtros por fuente: toggles ML/Frávega/Amazon — solo muestra fuentes con resultados
+- [x] Toast notifications: verde "Agregado ✓" / rojo "Eliminado" en SearchResults + ProductDetail
+- [x] Animación fade-in custom en tailwind.config.js
+- [x] Commit ea3fe68 + deploy Vercel → producción
+- [x] Watchlist alerta % editable inline (PATCH /watchlist/{id}) — commit 65c54cd
+- [x] Meta tags SEO en index.html (og:title, og:description, twitter:card)
+- [x] Vercel deploy manual (vercel --prod) — Render auto-deploy desde git push
+
+### P1 COMPLETO — Todas las mejoras UX implementadas y en producción
 
 ---
 
