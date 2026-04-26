@@ -1,142 +1,176 @@
-# PriceHunter 🔍
+# PriceHunter — Comparador de precios
 
-Comparador y tracker de precios multi-plataforma. Busca productos en **MercadoLibre Argentina** y **Amazon** simultáneamente, guarda historial de precios y permite armar una watchlist personal.
+Comparador y tracker de precios multi-plataforma. Buscá productos en **MercadoLibre AR**, **Frávega** y **Amazon.com** simultáneamente, seguí la evolución histórica de precios y armá tu watchlist personal con alertas configurables.
 
-**Demo en vivo:** [pricehunter-pied.vercel.app](https://pricehunter-pied.vercel.app)
+**Demo en vivo:** [pricehunter-pied.vercel.app](https://pricehunter-pied.vercel.app)  
+**API docs:** [pricehunter-api.onrender.com/docs](https://pricehunter-api.onrender.com/docs)
 
 ---
 
 ## Screenshots
 
-### Home — Categorías y buscador
+### Home — Categorías y búsquedas populares
 ![Home](docs/screenshots/home.png)
 
-### Resultados — MercadoLibre vs Amazon lado a lado
-![Search Results](docs/screenshots/search.png)
+### Resultados — ML + Amazon lado a lado con filtros y sort
+![Search Results](docs/screenshots/search_results.png)
 
-### Detalle de producto — Historial de precios con gráfico
-![Product Detail](docs/screenshots/product.png)
+### Detalle de producto — Historial de precios con gráfico interactivo
+![Product Detail](docs/screenshots/product_detail.png)
 
-### Watchlist — Seguimiento con variación de precio
+### Watchlist — Alertas configurables y semáforo de variación
 ![Watchlist](docs/screenshots/watchlist.png)
-
-### Admin panel — Control y estadísticas
-![Admin](docs/screenshots/admin.png)
-
----
-
-## Stack
-
-| Capa | Tecnología |
-|---|---|
-| Backend | FastAPI + Python 3.11 |
-| ORM | SQLAlchemy 2.0 (async) |
-| Validación | Pydantic v2 |
-| Base de datos | PostgreSQL (Render) |
-| Scraping | httpx + BeautifulSoup4 + Playwright |
-| Scheduler | APScheduler (cada 6h) |
-| Frontend | React 18 + Vite + TypeScript |
-| Estilos | Tailwind CSS v3 |
-| Gráficos | Recharts |
-| HTTP client | TanStack Query + axios |
-| Deploy API | Render |
-| Deploy Frontend | Vercel |
 
 ---
 
 ## Features
 
-- **Búsqueda simultánea** en MercadoLibre AR y Amazon con resultados lado a lado
-- **Historial de precios** con gráfico de área interactivo (Recharts)
-- **Watchlist personal** con alertas de variación porcentual (verde/rojo)
-- **8 categorías** con búsqueda directa (Tecnología, Celulares, Motos, Autos, etc.)
-- **Admin panel** con estadísticas, lista de productos trackeados y scraping manual
-- **Scraping automático** cada 6 horas via APScheduler
-- **Dark mode** nativo con paleta slate-900
+- **Búsqueda multi-plataforma** — MercadoLibre AR + Amazon.com en paralelo, resultados en grid 2/3 columnas
+- **Filtros por fuente** — toggle ML / Frávega / Amazon, oculta columnas vacías automáticamente
+- **Sort por precio** — ordena asc/desc en todas las columnas al mismo tiempo
+- **Historial de precios** — gráfico de área interactivo (Recharts) con evolución temporal
+- **Stats min/max/avg** — estadísticas de precio calculadas sobre el historial
+- **Watchlist personal** — guardá productos con alertas de % configurables por ítem (edición inline)
+- **Toast notifications** — feedback visual al agregar/quitar productos de watchlist
+- **8 categorías** — Tecnología, Celulares, Motos, Autos, Instrumentos, Hogar, Deportes, Ropa
+- **Scraping automático** — APScheduler cada 6h para productos en watchlist
+- **Panel de administración** — stats globales, tabla paginada y scraping manual
+
+---
+
+## Tech Stack
+
+| Capa | Tecnología |
+|------|-----------|
+| Backend | FastAPI + Python 3.11 |
+| ORM | SQLAlchemy 2.0 async |
+| Base de datos | PostgreSQL (Render) |
+| Scraping ML | httpx + BeautifulSoup4 (poly-card selectors) |
+| Scraping Amazon | curl_cffi (`impersonate="chrome124"` — bypass TLS fingerprint) |
+| Scraping Frávega | Playwright + Apollo `__NEXT_DATA__` GraphQL JSON |
+| Scheduler | APScheduler (cada 6h) |
+| Frontend | React 18 + Vite + TypeScript |
+| Estilos | Tailwind CSS v3 |
+| Gráficos | Recharts |
+| HTTP client | TanStack Query + Axios |
+| Deploy API | Render (Oregon) |
+| Deploy Frontend | Vercel |
 
 ---
 
 ## Arquitectura
 
 ```
-frontend/ (React + Vite)          backend/ (FastAPI)
-     │                                  │
-     │  GET /search?q=notebook          │
-     ├─────────────────────────────────►│
-     │                                  ├── search_ml()     → MercadoLibre AR
-     │                                  ├── search_amazon() → Amazon.com
-     │                                  ├── upsert DB       → PostgreSQL
-     │  { ml: [...], amazon: [...] }    │
-     ◄─────────────────────────────────┤
-     │                                  │
+┌────────────────────────────────────────────────────────┐
+│  Frontend (Vercel)                                      │
+│  React 18 + TypeScript + TanStack Query + Tailwind     │
+└───────────────────────┬────────────────────────────────┘
+                        │ HTTPS REST
+┌───────────────────────▼────────────────────────────────┐
+│  Backend API (Render — Oregon)                          │
+│  FastAPI + SQLAlchemy async + APScheduler               │
+│                                                         │
+│  GET /search ──► ml_scraper    (httpx + BS4)           │
+│             ──► amazon_scraper (curl_cffi Chrome TLS)  │
+│             ──► fravega_scraper (Playwright / proxy)   │
+│                                                         │
+│  Resultados → upsert DB → response                     │
+└───────────────────────┬────────────────────────────────┘
+                        │
+┌───────────────────────▼────────────────────────────────┐
+│  PostgreSQL (Render)                                    │
+│  products · price_history · watchlist · categories      │
+└────────────────────────────────────────────────────────┘
 ```
-
----
-
-## Setup local
-
-```bash
-# Backend
-git clone https://github.com/thestrokes1/PriceHunter
-cd PriceHunter
-python -m venv venv && source venv/Scripts/activate  # Windows
-pip install -r backend/requirements.txt
-pip install playwright && playwright install chromium  # solo para Amazon local
-
-# Copiar .env
-cp .env.example .env
-# Editar DATABASE_URL con tu PostgreSQL
-
-# Inicializar DB
-PYTHONPATH=. python backend/db/init_db.py
-
-# Iniciar API
-PYTHONPATH=. uvicorn backend.main:app --reload
-
-# Frontend (otra terminal)
-cd frontend && npm install && npm run dev
-```
-
-App en: http://localhost:5173
 
 ---
 
 ## API Endpoints
 
 ```
-GET  /health                    → estado del servicio y DB
-GET  /categories                → 8 categorías disponibles
-GET  /search?q=query&limit=10   → busca en ML y Amazon en paralelo
-GET  /products/{id}             → detalle + stats de precio
-GET  /products/{id}/history     → historial completo de precios
-POST /products/{id}/scrape      → forzar actualización de precio
-GET  /watchlist                 → lista personal guardada
-POST /watchlist                 → agregar producto a watchlist
-DELETE /watchlist/{id}          → quitar producto
-GET  /admin/products            → todos los productos trackeados
-GET  /admin/stats               → métricas generales
-POST /admin/scrape-all          → forzar scraping de toda la watchlist
+GET  /health
+GET  /categories
+
+GET  /search?q=...&cat=slug&limit=10
+     → { ml: [...], fravega: [...], amazon: [...] }
+
+GET  /products/{id}
+GET  /products/{id}/history
+POST /products/{id}/scrape
+
+GET    /watchlist
+POST   /watchlist         { product_id, alerta_pct }
+PATCH  /watchlist/{id}    { alerta_pct }
+DELETE /watchlist/{id}
+
+GET  /admin/products?source=&cat=
+GET  /admin/stats
+POST /admin/scrape-all
+POST /admin/seed-history
 ```
 
-Documentación interactiva: [pricehunter-api.onrender.com/docs](https://pricehunter-api.onrender.com/docs)
+---
+
+## Setup local
+
+### Backend
+
+```bash
+git clone https://github.com/thestrokes1/PriceHunter.git
+cd PriceHunter
+
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
+pip install -r backend/requirements.txt
+playwright install chromium     # solo para scraping Frávega local
+
+# Variables de entorno
+cp .env.example .env
+# Editar DATABASE_URL con tu PostgreSQL
+
+# Inicializar DB y categorías
+PYTHONPATH=. python backend/db/init_db.py
+
+# Correr API
+PYTHONPATH=. uvicorn backend.main:app --reload --port 8000
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+
+# Variables de entorno
+echo "VITE_API_URL=http://localhost:8000" > .env.local
+
+npm run dev   # → http://localhost:5173
+```
 
 ---
 
 ## Notas de scraping
 
-- **MercadoLibre**: httpx + BeautifulSoup4, selectores del design system `poly-card`
-- **Amazon**: Playwright (headless Chrome) en local, httpx con headers realistas en producción
-- Delays aleatorios entre requests para evitar rate limiting
-- User-Agent rotativo con headers realistas
+| Fuente | Método | Estado en prod |
+|--------|--------|---------------|
+| MercadoLibre | httpx + BS4, selectores `poly-card` | ✅ Funciona |
+| Amazon | curl_cffi `chrome124` (bypass TLS fingerprint) | ✅ Funciona |
+| Frávega | Playwright + `__NEXT_DATA__` Apollo JSON | ⚠️ Geo-blocked en datacenter |
+
+**Frávega:** Cloudflare bloquea IPs de datacenter (Render Oregon). Funciona perfectamente en local desde IP argentina. Alternativas en evaluación: proxy AR (~$3/mes) o GitHub Actions cron.
 
 ---
 
 ## Deploy
 
 | Servicio | Plataforma | URL |
-|---|---|---|
+|---------|-----------|-----|
 | Frontend | Vercel | [pricehunter-pied.vercel.app](https://pricehunter-pied.vercel.app) |
 | Backend API | Render (free) | [pricehunter-api.onrender.com](https://pricehunter-api.onrender.com) |
-| Base de datos | Render PostgreSQL | Virginia, US |
+| Base de datos | Render PostgreSQL | Oregon, US |
 
-> El free tier de Render duerme tras 15 min de inactividad — la primera request puede tardar ~15s en despertar.
+> El free tier de Render duerme tras 15 min de inactividad — la primera request puede tardar ~15s.
+
+---
+
+Desarrollado por **Cristian** — proyecto portfolio Full Stack Python + React.
