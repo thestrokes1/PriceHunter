@@ -1,10 +1,25 @@
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { useState, useEffect } from "react";
 import ProductCard from "../components/ProductCard";
 import { endpoints } from "../api/client";
 import type { ProductResult } from "../api/client";
 
+// ── Toast ──────────────────────────────────────────────────────────────────
+interface ToastState { msg: string; type: "success" | "error" }
+
+function Toast({ toast }: { toast: ToastState | null }) {
+  if (!toast) return null;
+  return (
+    <div className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-lg text-white text-sm font-medium animate-fade-in
+      ${toast.type === "success" ? "bg-green-600" : "bg-red-500"}`}>
+      {toast.msg}
+    </div>
+  );
+}
+
+// ── Skeleton ───────────────────────────────────────────────────────────────
 function SkeletonCard() {
   return (
     <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 flex gap-4 animate-pulse">
@@ -19,6 +34,7 @@ function SkeletonCard() {
   );
 }
 
+// ── Column ─────────────────────────────────────────────────────────────────
 interface ColumnProps {
   label: string;
   badgeBg: string;
@@ -57,11 +73,28 @@ function ResultColumn({ label, badgeBg, badgeText, products, isLoading, watchlis
   );
 }
 
+// ── Main ───────────────────────────────────────────────────────────────────
+type SortOrder = "asc" | "desc" | null;
+
 export default function SearchResults() {
   const [params] = useSearchParams();
   const q = params.get("q") ?? "";
   const cat = params.get("cat") ?? undefined;
   const qc = useQueryClient();
+
+  const [sortOrder, setSortOrder] = useState<SortOrder>(null);
+  const [activeSources, setActiveSources] = useState<Set<string>>(new Set(["ml", "fravega", "amazon"]));
+  const [toast, setToast] = useState<ToastState | null>(null);
+
+  const showToast = (msg: string, type: ToastState["type"] = "success") => {
+    setToast({ msg, type });
+  };
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["search", q, cat],
@@ -78,19 +111,46 @@ export default function SearchResults() {
 
   const addMutation = useMutation({
     mutationFn: (id: number) => endpoints.addToWatchlist(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["watchlist"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["watchlist"] });
+      showToast("Agregado a watchlist ✓", "success");
+    },
   });
+
   const removeMutation = useMutation({
     mutationFn: async (product_id: number) => {
       const entry = watchlist.find((w) => w.product_id === product_id);
       if (entry) await endpoints.removeFromWatchlist(entry.id);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["watchlist"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["watchlist"] });
+      showToast("Eliminado de watchlist", "error");
+    },
   });
 
   const toggleWatchlist = (id: number) => {
     if (watchlistIds.has(id)) removeMutation.mutate(id);
     else addMutation.mutate(id);
+  };
+
+  const sortProducts = (products: ProductResult[]) => {
+    if (!sortOrder) return products;
+    return [...products].sort((a, b) =>
+      sortOrder === "asc" ? a.price - b.price : b.price - a.price
+    );
+  };
+
+  const cycleSortOrder = () => {
+    setSortOrder((prev) => (prev === null ? "asc" : prev === "asc" ? "desc" : null));
+  };
+
+  const toggleSource = (key: string) => {
+    setActiveSources((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   };
 
   const allColumns = [
@@ -99,7 +159,7 @@ export default function SearchResults() {
       label: "MercadoLibre",
       badgeBg: "bg-yellow-500",
       badgeText: "text-yellow-900",
-      products: data?.ml ?? [],
+      products: sortProducts(data?.ml ?? []),
       emptyMsg: "Sin resultados en MercadoLibre",
     },
     {
@@ -107,7 +167,7 @@ export default function SearchResults() {
       label: "Frávega",
       badgeBg: "bg-blue-500",
       badgeText: "text-blue-50",
-      products: data?.fravega ?? [],
+      products: sortProducts(data?.fravega ?? []),
       emptyMsg: "Sin resultados en Frávega",
     },
     {
@@ -115,21 +175,69 @@ export default function SearchResults() {
       label: "Amazon",
       badgeBg: "bg-orange-500",
       badgeText: "text-orange-900",
-      products: data?.amazon ?? [],
+      products: sortProducts(data?.amazon ?? []),
       emptyMsg: "Sin resultados en Amazon",
     },
   ];
 
-  // While loading show all 3 columns (skeletons). Once loaded, hide sources with 0 results.
+  // Sources that actually have results (used for filter toggles)
+  const availableSources = isLoading
+    ? allColumns.map((c) => c.key)
+    : allColumns.filter((c) => c.products.length > 0).map((c) => c.key);
+
   const columns = isLoading
     ? allColumns
-    : allColumns.filter((col) => col.products.length > 0);
+    : allColumns.filter((col) => col.products.length > 0 && activeSources.has(col.key));
+
+  const gridClass =
+    columns.length === 1
+      ? "max-w-xl"
+      : columns.length === 2
+      ? "md:grid-cols-2"
+      : "lg:grid-cols-3";
+
+  const SortIcon = sortOrder === "asc" ? ArrowUp : sortOrder === "desc" ? ArrowDown : ArrowUpDown;
+  const sortLabel = sortOrder === "asc" ? "Precio ↑" : sortOrder === "desc" ? "Precio ↓" : "Ordenar";
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-white mb-6">
-        Resultados para <span className="text-blue-400">"{q}"</span>
-      </h1>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <h1 className="text-2xl font-bold text-white">
+          Resultados para <span className="text-blue-400">"{q}"</span>
+        </h1>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Source filter toggles */}
+          {!isLoading && availableSources.length > 1 && allColumns
+            .filter((c) => availableSources.includes(c.key))
+            .map((col) => (
+              <button
+                key={col.key}
+                onClick={() => toggleSource(col.key)}
+                className={`text-xs font-bold px-3 py-1.5 rounded-full border transition-all ${
+                  activeSources.has(col.key)
+                    ? `${col.badgeBg} ${col.badgeText} border-transparent`
+                    : "bg-transparent border-slate-600 text-slate-400 hover:border-slate-400"
+                }`}
+              >
+                {col.label}
+              </button>
+            ))}
+
+          {/* Sort button */}
+          <button
+            onClick={cycleSortOrder}
+            className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full border transition-all ${
+              sortOrder
+                ? "bg-blue-600 text-white border-transparent"
+                : "bg-transparent border-slate-600 text-slate-400 hover:border-slate-400 hover:text-slate-300"
+            }`}
+          >
+            <SortIcon size={14} />
+            {sortLabel}
+          </button>
+        </div>
+      </div>
 
       {isError && (
         <div className="flex items-center gap-2 text-red-400 bg-red-400/10 border border-red-400/30 rounded-lg p-4 mb-6">
@@ -138,7 +246,7 @@ export default function SearchResults() {
         </div>
       )}
 
-      <div className={`grid grid-cols-1 gap-6 ${columns.length === 1 ? "max-w-xl" : columns.length === 2 ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
+      <div className={`grid grid-cols-1 gap-6 ${gridClass}`}>
         {columns.map((col) => (
           <ResultColumn
             key={col.key}
@@ -153,6 +261,8 @@ export default function SearchResults() {
           />
         ))}
       </div>
+
+      <Toast toast={toast} />
     </div>
   );
 }

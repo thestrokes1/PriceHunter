@@ -1,8 +1,21 @@
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink, Bookmark, BookmarkCheck, TrendingUp, TrendingDown, Minus, RefreshCw } from "lucide-react";
+import { useState, useEffect } from "react";
 import PriceChart from "../components/PriceChart";
 import { endpoints } from "../api/client";
+
+interface ToastState { msg: string; type: "success" | "error" }
+
+function Toast({ toast }: { toast: ToastState | null }) {
+  if (!toast) return null;
+  return (
+    <div className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-lg text-white text-sm font-medium animate-fade-in
+      ${toast.type === "success" ? "bg-green-600" : "bg-red-500"}`}>
+      {toast.msg}
+    </div>
+  );
+}
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
@@ -28,6 +41,16 @@ export default function ProductDetail() {
     queryFn: () => endpoints.history(productId).then((r) => r.data),
   });
 
+  const [toast, setToast] = useState<ToastState | null>(null);
+
+  const showToast = (msg: string, type: ToastState["type"] = "success") => setToast({ msg, type });
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(t);
+  }, [toast]);
+
   const { data: watchlist = [] } = useQuery({
     queryKey: ["watchlist"],
     queryFn: () => endpoints.watchlist().then((r) => r.data),
@@ -38,11 +61,17 @@ export default function ProductDetail() {
 
   const addMutation = useMutation({
     mutationFn: () => endpoints.addToWatchlist(productId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["watchlist"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["watchlist"] });
+      showToast("Agregado a watchlist ✓", "success");
+    },
   });
   const removeMutation = useMutation({
     mutationFn: () => endpoints.removeFromWatchlist(watchlistEntry!.id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["watchlist"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["watchlist"] });
+      showToast("Eliminado de watchlist", "error");
+    },
   });
   const scrapeMutation = useMutation({
     mutationFn: () => endpoints.scrapeProduct(productId),
@@ -129,6 +158,8 @@ export default function ProductDetail() {
         <h2 className="text-white font-semibold mb-4">Historial de precios</h2>
         <PriceChart data={history} currency={currency} />
       </div>
+
+      <Toast toast={toast} />
     </div>
   );
 }
