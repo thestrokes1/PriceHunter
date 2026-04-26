@@ -8,13 +8,14 @@ interface Props {
   onToggleWatchlist?: (id: number) => void;
 }
 
-const SOURCE_STYLES = {
+const SOURCE_STYLES: Record<string, { label: string; bg: string; text: string }> = {
   mercadolibre: { label: "MercadoLibre", bg: "bg-yellow-500", text: "text-yellow-900" },
-  amazon: { label: "Amazon", bg: "bg-orange-500", text: "text-orange-900" },
+  amazon:        { label: "Amazon",       bg: "bg-orange-500", text: "text-orange-900" },
+  fravega:       { label: "Frávega",      bg: "bg-blue-500",   text: "text-blue-50"   },
 };
 
 export default function ProductCard({ product, inWatchlist, onToggleWatchlist }: Props) {
-  const src = SOURCE_STYLES[product.source] ?? SOURCE_STYLES.amazon;
+  const src = SOURCE_STYLES[product.source] ?? { label: product.source, bg: "bg-slate-600", text: "text-white" };
   const price = product.currency === "ARS"
     ? `$${product.price.toLocaleString("es-AR")}`
     : `USD ${product.price.toLocaleString("en-US", { minimumFractionDigits: 2 })}`;

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle } from "lucide-react";
 import ProductCard from "../components/ProductCard";
 import { endpoints } from "../api/client";
+import type { ProductResult } from "../api/client";
 
 function SkeletonCard() {
   return (
@@ -13,6 +14,44 @@ function SkeletonCard() {
         <div className="h-4 bg-slate-700 rounded w-full" />
         <div className="h-4 bg-slate-700 rounded w-2/3" />
         <div className="h-5 bg-slate-700 rounded w-24 mt-auto" />
+      </div>
+    </div>
+  );
+}
+
+interface ColumnProps {
+  label: string;
+  badgeBg: string;
+  badgeText: string;
+  products: ProductResult[];
+  isLoading: boolean;
+  watchlistIds: Set<number>;
+  onToggle: (id: number) => void;
+  emptyMsg: string;
+}
+
+function ResultColumn({ label, badgeBg, badgeText, products, isLoading, watchlistIds, onToggle, emptyMsg }: ColumnProps) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <span className={`text-xs font-bold px-2 py-1 rounded-full ${badgeBg} ${badgeText}`}>{label}</span>
+        {!isLoading && <span className="text-slate-500 text-sm">{products.length} resultados</span>}
+      </div>
+      <div className="flex flex-col gap-3">
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
+        ) : products.length === 0 ? (
+          <p className="text-slate-500 text-sm py-8 text-center">{emptyMsg}</p>
+        ) : (
+          products.map((p) => (
+            <ProductCard
+              key={p.id}
+              product={p}
+              inWatchlist={watchlistIds.has(p.id)}
+              onToggleWatchlist={onToggle}
+            />
+          ))
+        )}
       </div>
     </div>
   );
@@ -54,6 +93,33 @@ export default function SearchResults() {
     else addMutation.mutate(id);
   };
 
+  const columns = [
+    {
+      key: "ml",
+      label: "MercadoLibre",
+      badgeBg: "bg-yellow-500",
+      badgeText: "text-yellow-900",
+      products: data?.ml ?? [],
+      emptyMsg: "Sin resultados en MercadoLibre",
+    },
+    {
+      key: "fravega",
+      label: "Frávega",
+      badgeBg: "bg-blue-500",
+      badgeText: "text-blue-50",
+      products: data?.fravega ?? [],
+      emptyMsg: "Sin resultados en Frávega",
+    },
+    {
+      key: "amazon",
+      label: "Amazon",
+      badgeBg: "bg-orange-500",
+      badgeText: "text-orange-900",
+      products: data?.amazon ?? [],
+      emptyMsg: "Sin resultados en Amazon",
+    },
+  ];
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-white mb-6">
@@ -67,54 +133,20 @@ export default function SearchResults() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* MercadoLibre column */}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs font-bold px-2 py-1 rounded-full bg-yellow-500 text-yellow-900">MercadoLibre</span>
-            {!isLoading && <span className="text-slate-500 text-sm">{data?.ml.length ?? 0} resultados</span>}
-          </div>
-          <div className="flex flex-col gap-3">
-            {isLoading ? (
-              Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)
-            ) : data?.ml.length === 0 ? (
-              <p className="text-slate-500 text-sm py-8 text-center">Sin resultados en MercadoLibre</p>
-            ) : (
-              data?.ml.map((p) => (
-                <ProductCard
-                  key={p.id}
-                  product={p}
-                  inWatchlist={watchlistIds.has(p.id)}
-                  onToggleWatchlist={toggleWatchlist}
-                />
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Amazon column */}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs font-bold px-2 py-1 rounded-full bg-orange-500 text-orange-900">Amazon</span>
-            {!isLoading && <span className="text-slate-500 text-sm">{data?.amazon.length ?? 0} resultados</span>}
-          </div>
-          <div className="flex flex-col gap-3">
-            {isLoading ? (
-              Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)
-            ) : data?.amazon.length === 0 ? (
-              <p className="text-slate-500 text-sm py-8 text-center">Sin resultados en Amazon</p>
-            ) : (
-              data?.amazon.map((p) => (
-                <ProductCard
-                  key={p.id}
-                  product={p}
-                  inWatchlist={watchlistIds.has(p.id)}
-                  onToggleWatchlist={toggleWatchlist}
-                />
-              ))
-            )}
-          </div>
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {columns.map((col) => (
+          <ResultColumn
+            key={col.key}
+            label={col.label}
+            badgeBg={col.badgeBg}
+            badgeText={col.badgeText}
+            products={col.products}
+            isLoading={isLoading}
+            watchlistIds={watchlistIds}
+            onToggle={toggleWatchlist}
+            emptyMsg={col.emptyMsg}
+          />
+        ))}
       </div>
     </div>
   );

@@ -17,7 +17,7 @@ export interface ProductResult {
   id: number;
   title: string;
   url: string;
-  source: "mercadolibre" | "amazon";
+  source: "mercadolibre" | "amazon" | "fravega";
   price: number;
   currency: string;
   imagen_url: string | null;
@@ -90,7 +90,7 @@ export const endpoints = {
   health: () => api.get("/health"),
   categories: () => api.get<Category[]>("/categories"),
   search: (q: string, cat?: string, limit = 10) =>
-    api.get<{ query: string; ml: ProductResult[]; amazon: ProductResult[] }>("/search", {
+    api.get<{ query: string; ml: ProductResult[]; fravega: ProductResult[]; amazon: ProductResult[] }>("/search", {
       params: { q, cat, limit },
     }),
   product: (id: number) => api.get<ProductDetail>(`/products/${id}`),

@@ -34,6 +34,12 @@ def _sync_playwright_fetch(query: str) -> str:
 
 async def _playwright_fetch(query: str) -> str:
     from playwright.async_api import async_playwright
+    try:
+        from playwright_stealth import stealth_async
+        _stealth = stealth_async
+    except ImportError:
+        _stealth = None
+
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context(
@@ -46,6 +52,8 @@ async def _playwright_fetch(query: str) -> str:
             locale="en-US",
         )
         page = await context.new_page()
+        if _stealth:
+            await _stealth(page)
         await page.goto(BASE_URL.format(query=query.replace(" ", "+")), wait_until="domcontentloaded", timeout=25000)
         await asyncio.sleep(random.uniform(1.5, 2.5))
         html = await page.content()
