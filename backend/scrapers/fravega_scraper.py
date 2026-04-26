@@ -1,20 +1,24 @@
 """Fravega scraper.
 
 Local:       Playwright (headless Chrome).
-Production:  httpx fallback (Fravega has no strong anti-bot).
+Production:  curl_cffi (impersonate Chrome TLS fingerprint) — bypasses Cloudflare.
+Fallback:    httpx (may fail on datacenter IPs).
 """
 import re
 import asyncio
 import random
 from bs4 import BeautifulSoup
-from .utils import truncate, random_delay, get_ml_headers
+from .utils import truncate, random_delay
 
 BASE_URL = "https://www.fravega.com"
 SEARCH_URL = "https://www.fravega.com/l/?keyword={query}"
 
 
 async def search_fravega(query: str, limit: int = 10) -> list[dict]:
-    html = await _playwright_fetch(query) if _has_playwright() else await _httpx_fetch(query)
+    if _has_playwright():
+        html = await _playwright_fetch(query)
+    else:
+        html = await _curl_fetch(query)
     return _parse(html, limit) if html else []
 
 
@@ -55,25 +59,51 @@ async def _playwright_fetch(query: str) -> str:
         return ""
 
 
-async def _httpx_fetch(query: str) -> str:
+async def _curl_fetch(query: str) -> str:
+    """curl_cffi primary — bypasses Cloudflare on datacenter IPs."""
+    url = SEARCH_URL.format(query=query.replace(" ", "+"))
+    await random_delay(0.5, 1.5)
+    try:
+        from curl_cffi.requests import AsyncSession
+        async with AsyncSession() as session:
+            resp = await session.get(url, impersonate="chrome124", timeout=12)
+            resp.raise_for_status()
+            return resp.text
+    except ImportError:
+        pass
+    except Exception as e:
+        print(f"[Fravega] curl_cffi error: {e}")
+
     try:
         import httpx
-        headers = {
-            **get_ml_headers(),
-            "Accept-Language": "es-AR,es;q=0.9",
-            "Referer": "https://www.fravega.com/",
-        }
         async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
-            await random_delay(0.5, 1.5)
-            resp = await client.get(
-                SEARCH_URL.format(query=query.replace(" ", "+")),
-                headers=headers,
-            )
+            resp = await client.get(url, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36",
+                "Accept-Language": "es-AR,es;q=0.9",
+                "Referer": "https://www.fravega.com/",
+            })
             resp.raise_for_status()
             return resp.text
     except Exception as e:
         print(f"[Fravega] httpx error: {e}")
         return ""
+
+
+def _parse_fravega_price(text: str) -> float | None:
+    """Parse Argentine price format: $1.624.999,99 → 1624999.99"""
+    m = re.match(r"^\$([\d.,]+)$", text.strip())
+    if not m:
+        return None
+    raw = m.group(1)
+    # Remove thousand separators (dots), convert decimal comma to dot
+    if "," in raw:
+        raw = raw.replace(".", "").replace(",", ".")
+    else:
+        raw = raw.replace(".", "")
+    try:
+        return float(raw)
+    except ValueError:
+        return None
 
 
 def _parse(html: str, limit: int) -> list[dict]:
@@ -94,24 +124,19 @@ def _parse(html: str, limit: int) -> list[dict]:
         title = None
         for span in article.find_all("span"):
             txt = span.get_text(strip=True)
-            if len(txt) > 10 and not txt.startswith("$") and not txt.isdigit():
+            if len(txt) > 10 and not txt.startswith("$") and not re.match(r"^\d+$", txt):
                 title = txt
                 break
         if not title:
             continue
 
+        # Take the lowest price found in the article (sale price)
         price = None
         for span in article.find_all("span"):
             txt = span.get_text(strip=True)
-            m = re.match(r"^\$[\d.]+$", txt)
-            if m:
-                raw = txt.replace("$", "").replace(".", "")
-                try:
-                    candidate = float(raw)
-                    if price is None or candidate < price:
-                        price = candidate
-                except ValueError:
-                    pass
+            candidate = _parse_fravega_price(txt)
+            if candidate and (price is None or candidate < price):
+                price = candidate
 
         if not price:
             continue
