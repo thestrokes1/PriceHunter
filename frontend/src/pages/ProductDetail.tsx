@@ -1,9 +1,10 @@
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink, Bookmark, BookmarkCheck, TrendingUp, TrendingDown, Minus, RefreshCw } from "lucide-react";
 import { useState, useEffect } from "react";
 import PriceChart from "../components/PriceChart";
 import { endpoints } from "../api/client";
+import type { ProductResult } from "../api/client";
 
 interface ToastState { msg: string; type: "success" | "error" }
 
@@ -26,10 +27,48 @@ function StatCard({ label, value }: { label: string; value: string }) {
   );
 }
 
+function CompareCard({ item }: { item: ProductResult }) {
+  const isAmazon = item.source === "amazon";
+  const priceStr = item.currency === "ARS"
+    ? `$${item.price.toLocaleString("es-AR")}`
+    : `USD ${item.price.toFixed(2)}`;
+
+  return (
+    <Link to={`/product/${item.id}`}
+      className="flex items-center gap-3 bg-slate-900/60 hover:bg-slate-700/60 border border-slate-700 hover:border-slate-500 rounded-xl p-3 transition-all group">
+      {item.imagen_url && (
+        <img src={item.imagen_url} alt="" className="w-12 h-12 object-contain rounded-lg bg-white p-1 shrink-0" />
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="text-white text-sm line-clamp-2 leading-tight group-hover:text-blue-300 transition-colors">
+          {item.title}
+        </p>
+        {item.rating && (
+          <p className="text-slate-500 text-xs mt-0.5">★ {item.rating}</p>
+        )}
+      </div>
+      <div className="text-right shrink-0">
+        <p className={`font-bold text-sm ${isAmazon ? "text-orange-400" : "text-yellow-400"}`}>
+          {priceStr}
+        </p>
+      </div>
+    </Link>
+  );
+}
+
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const productId = Number(id);
   const qc = useQueryClient();
+
+  const [toast, setToast] = useState<ToastState | null>(null);
+  const showToast = (msg: string, type: ToastState["type"] = "success") => setToast({ msg, type });
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   const { data: product, isLoading } = useQuery({
     queryKey: ["product", productId],
@@ -41,20 +80,25 @@ export default function ProductDetail() {
     queryFn: () => endpoints.history(productId).then((r) => r.data),
   });
 
-  const [toast, setToast] = useState<ToastState | null>(null);
-
-  const showToast = (msg: string, type: ToastState["type"] = "success") => setToast({ msg, type });
-
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3000);
-    return () => clearTimeout(t);
-  }, [toast]);
-
   const { data: watchlist = [] } = useQuery({
     queryKey: ["watchlist"],
     queryFn: () => endpoints.watchlist().then((r) => r.data),
   });
+
+  // Comparison search on the other platform
+  const { data: compareData } = useQuery({
+    queryKey: ["compare", productId, product?.title],
+    queryFn: () => endpoints.search(product!.title, undefined, 4).then((r) => r.data),
+    enabled: !!product,
+    staleTime: 1000 * 60 * 10,
+  });
+
+  const otherKey = product?.source === "mercadolibre" ? "amazon" : "ml";
+  const otherLabel = product?.source === "mercadolibre" ? "Amazon" : "MercadoLibre";
+  const otherBadge = product?.source === "mercadolibre"
+    ? "bg-orange-500 text-orange-900"
+    : "bg-yellow-500 text-yellow-900";
+  const compareResults: ProductResult[] = (compareData?.[otherKey] ?? []).slice(0, 3);
 
   const inWatchlist = watchlist.some((w) => w.product_id === productId);
   const watchlistEntry = watchlist.find((w) => w.product_id === productId);
@@ -158,6 +202,29 @@ export default function ProductDetail() {
         <h2 className="text-white font-semibold mb-4">Historial de precios</h2>
         <PriceChart data={history} currency={currency} />
       </div>
+
+      {/* Comparison widget */}
+      {compareResults.length > 0 && (
+        <div className="bg-slate-800 rounded-xl border border-slate-700 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-white font-semibold">También en</h2>
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${otherBadge}`}>
+              {otherLabel}
+            </span>
+          </div>
+          <div className="flex flex-col gap-2">
+            {compareResults.map((item) => (
+              <CompareCard key={item.id} item={item} />
+            ))}
+          </div>
+          <Link
+            to={`/search?q=${encodeURIComponent(product.title)}`}
+            className="block text-center text-blue-400 hover:text-blue-300 text-sm mt-3 transition-colors"
+          >
+            Ver todos los resultados →
+          </Link>
+        </div>
+      )}
 
       <Toast toast={toast} />
     </div>
