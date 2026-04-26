@@ -5,8 +5,8 @@
 
 ## ESTADO GENERAL
 **Fase actual:** Post-deploy — mejoras iterativas  
-**Último paso:** Frávega httpx prod + Admin pagination + UX fixes (search speed, navbar, titles)  
-**Próximo paso:** Ver MEJORAS PENDIENTES en CLAUDE.md (priorizadas P0→P3)
+**Último paso:** Amazon resuelto con curl_cffi. Frávega diagnosticado (Cloudflare JS challenge). Ver FRAVEGA PENDIENTE abajo.  
+**Próximo paso (próxima sesión):** Elegir opción para Frávega prod (A/B/C) → luego P1 UX (sort, filtros, toasts)
 
 ---
 
@@ -56,6 +56,37 @@
 - [ ] README con screenshots (P2)
 - [ ] Rotar Render API key comprometida (P2)
 
+---
+
+## FRÁVEGA EN PRODUCCIÓN — DECISIÓN PENDIENTE
+
+**Diagnóstico confirmado (2026-04-26):**
+- Render recibe 919 bytes de Fravega → es una **Cloudflare JS challenge** (no geo-block)
+- curl_cffi bypassea TLS fingerprint pero NO puede ejecutar el JavaScript del challenge
+- IP de datacenter conocida (Render Oregon) → Cloudflare desconfía automáticamente
+
+**Tres opciones disponibles, elegir al inicio de próxima sesión:**
+
+**A — Railway São Paulo** (gratis)
+- Railway tiene servidores en Brasil (IP sudamericana, no datacenter flaggeado)
+- Migrar solo el scraper de Frávega a un servicio Railway, o todo el backend
+- Costo: $0 (entra en el free credit de $5/mes de Railway)
+- Trabajo: ~1-2h de configuración
+
+**B — GitHub Actions cron** (gratis)
+- Cron job cada 6h que scrapea Frávega desde IP de GitHub (puede o no pasar Cloudflare)
+- Guarda resultados en la DB → `/search` sirve datos cacheados para Frávega
+- Costo: $0
+- Datos: no son "live", se actualizan cada X horas
+- Trabajo: ~1h de configuración
+
+**C — Aceptar ML + Amazon en producción** (gratis, sin trabajo)
+- Frávega funciona perfecto en local (IP argentina)
+- Para el portfolio se demuestra en vivo desde la máquina de Cristian
+- Seguir con mejoras P1 directamente
+
+---
+
 ### MEJORAS POST-DEPLOY ✅ (sesión 2026-04-26)
 - [x] Frávega como tercer scraper (Playwright local)
 - [x] Frávega httpx fallback para producción
@@ -66,6 +97,15 @@
 - [x] Page title: "PriceHunter — Comparador de precios"
 - [x] Admin: paginación (20/página) + filtro por fuente + badge Frávega
 - [x] CLAUDE.md reescrito con estado real y backlog priorizado
+
+### Sesión 2026-04-26 (tarde)
+- [x] Amazon en producción resuelto: curl_cffi impersonate=chrome124 → 5 resultados USD reales
+- [x] Frávega scraper mejorado: lee Apollo GraphQL JSON (__NEXT_DATA__) en vez de HTML
+- [x] Frávega FRAVEGA_PROXY env var implementada (plug-and-play cuando se tenga proxy)
+- [x] Diagnóstico Frávega prod: 919 bytes = Cloudflare JS challenge (no geo-block)
+- [x] Tres opciones documentadas (A/B/C) para resolver Frávega en prod sin costo
+- [ ] **PENDIENTE: elegir opción A/B/C para Frávega prod**
+- [ ] **PENDIENTE: P1 UX — sort por precio, filtros, toasts**
 
 ---
 

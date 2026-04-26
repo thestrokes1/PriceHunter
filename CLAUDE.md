@@ -121,10 +121,22 @@ POST /admin/scrape-all
 | Frávega | ✅ funciona | ❌ geo-blocked | Cloudflare de Frávega bloquea IPs no-AR |
 
 **Amazon en producción:** resuelto con `curl_cffi==0.7.4` (`impersonate="chrome124"`).
-**Frávega en producción:** geo-blocked por Cloudflare. Solo funciona desde IP argentina (local dev).
-Solución futura: proxy AR (<$5/mes Webshare) — baja prioridad para portfolio.
 
-**Técnica de parseo Frávega:** lee `__NEXT_DATA__` Apollo GraphQL cache en JSON — más robusto que scraping HTML.
+**Frávega en producción:** Cloudflare JS challenge. Diagnóstico confirmado:
+- Render recibe 919 bytes → es la página de challenge de Cloudflare (no contenido real)
+- curl_cffi bypassea TLS fingerprint pero no ejecuta el JS del challenge
+- IP de datacenter (Render Oregon) es flaggeada automáticamente por Cloudflare
+- Funciona perfecto local (IP argentina = IP "humana" confiable para Cloudflare)
+
+**Tres opciones pendientes de decisión (próxima sesión):**
+- **A** Railway São Paulo (IP sudamericana, gratis) — migrar backend o solo scraper
+- **B** GitHub Actions cron (scrapea y cachea en DB cada 6h, gratis)
+- **C** Aceptar ML+Amazon en prod, Frávega en local — seguir con P1 UX
+
+**Técnica de parseo Frávega:** lee `__NEXT_DATA__` Apollo GraphQL cache en JSON — más robusto que HTML scraping.
+- Price: `salePrice.amounts[0].min`
+- Image URL: `https://images.fravega.com/f300/{filename}`
+- URL: `https://www.fravega.com/producto/{slug}/`
 
 ---
 
