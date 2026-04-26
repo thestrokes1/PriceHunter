@@ -1,11 +1,11 @@
-"""Fravega scraper.
+"""Fravega scraper — parses __NEXT_DATA__ Apollo state (JSON, no HTML fragility).
 
 Local:       Playwright (headless Chrome).
-Production:  curl_cffi (impersonate Chrome TLS fingerprint) — bypasses Cloudflare.
-Fallback:    httpx (may fail on datacenter IPs).
+Production:  curl_cffi (Chrome TLS impersonation, bypasses Cloudflare).
+Fallback:    httpx (may fail on datacenter IPs without Argentine geo).
 """
-import re
 import asyncio
+import json
 import random
 from bs4 import BeautifulSoup
 from .utils import truncate, random_delay
@@ -19,7 +19,9 @@ async def search_fravega(query: str, limit: int = 10) -> list[dict]:
         html = await _playwright_fetch(query)
     else:
         html = await _curl_fetch(query)
-    return _parse(html, limit) if html else []
+    if not html:
+        return []
+    return _parse_next_data(html, limit) or _parse_articles(html, limit)
 
 
 def _has_playwright() -> bool:
@@ -60,7 +62,6 @@ async def _playwright_fetch(query: str) -> str:
 
 
 async def _curl_fetch(query: str) -> str:
-    """curl_cffi primary — bypasses Cloudflare on datacenter IPs."""
     url = SEARCH_URL.format(query=query.replace(" ", "+"))
     await random_delay(0.5, 1.5)
     try:
@@ -73,7 +74,6 @@ async def _curl_fetch(query: str) -> str:
         pass
     except Exception as e:
         print(f"[Fravega] curl_cffi error: {e}")
-
     try:
         import httpx
         async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
@@ -89,57 +89,61 @@ async def _curl_fetch(query: str) -> str:
         return ""
 
 
-def _parse_fravega_price(text: str) -> float | None:
-    """Parse Argentine price format: $1.624.999,99 → 1624999.99"""
-    m = re.match(r"^\$([\d.,]+)$", text.strip())
-    if not m:
-        return None
-    raw = m.group(1)
-    # Remove thousand separators (dots), convert decimal comma to dot
-    if "," in raw:
-        raw = raw.replace(".", "").replace(",", ".")
-    else:
-        raw = raw.replace(".", "")
+def _parse_next_data(html: str, limit: int) -> list[dict]:
+    """Extract products from Next.js Apollo state — reliable JSON, no HTML fragility."""
     try:
-        return float(raw)
-    except ValueError:
-        return None
+        soup = BeautifulSoup(html, "html.parser")
+        script = soup.find("script", id="__NEXT_DATA__")
+        if not script:
+            return []
+        data = json.loads(script.string)
+        apollo = data["props"]["pageProps"].get("__APOLLO_STATE__", {})
+        root = apollo.get("ROOT_QUERY", {})
 
+        items_key = next((k for k in root if k.startswith("items(")), None)
+        if not items_key:
+            return []
+        items = root[items_key]
 
-def _parse(html: str, limit: int) -> list[dict]:
-    soup = BeautifulSoup(html, "html.parser")
-    articles = soup.select("article")[:limit]
+        results_key = next((k for k in items if k.startswith("results(")), None)
+        if not results_key:
+            return []
+        products = items[results_key][:limit]
+
+    except Exception as e:
+        print(f"[Fravega] NEXT_DATA parse error: {e}")
+        return []
+
     results = []
-
-    for article in articles:
-        link_el = article.select_one("a[href]")
-        if not link_el:
-            continue
-        href = link_el.get("href", "")
-        url = f"{BASE_URL}{href}" if href.startswith("/") else href
-
-        img_el = article.select_one("img[src]")
-        imagen_url = img_el.get("src") if img_el else None
-
-        title = None
-        for span in article.find_all("span"):
-            txt = span.get_text(strip=True)
-            if len(txt) > 10 and not txt.startswith("$") and not re.match(r"^\d+$", txt):
-                title = txt
-                break
+    for p in products:
+        title = p.get("title", "").strip()
         if not title:
             continue
 
-        # Take the lowest price found in the article (sale price)
-        price = None
-        for span in article.find_all("span"):
-            txt = span.get_text(strip=True)
-            candidate = _parse_fravega_price(txt)
-            if candidate and (price is None or candidate < price):
-                price = candidate
+        slug = p.get("slug", "")
+        url = f"{BASE_URL}/producto/{slug}/" if slug else BASE_URL
 
-        if not price:
+        # salePrice.amounts[0].min preferred, fallback to listPrice
+        try:
+            sale = p.get("salePrice", {})
+            list_ = p.get("listPrice", {})
+            price = (
+                sale.get("amounts", [{}])[0].get("min")
+                or list_.get("amounts", [{}])[0].get("min")
+            )
+            price = float(price)
+        except (TypeError, ValueError, IndexError):
             continue
+        if not price or price <= 0:
+            continue
+
+        # Images are filenames; construct CDN URL
+        images = p.get("images") or []
+        imagen_url = (
+            f"https://images.fravega.com/f300/{images[0]}"
+            if images and isinstance(images[0], str)
+            else None
+        )
 
         results.append({
             "title": truncate(title),
@@ -152,4 +156,54 @@ def _parse(html: str, limit: int) -> list[dict]:
             "reviews": None,
         })
 
+    return results
+
+
+def _parse_articles(html: str, limit: int) -> list[dict]:
+    """Fallback: parse <article> tags from rendered HTML."""
+    import re
+    soup = BeautifulSoup(html, "html.parser")
+    articles = soup.select("article")[:limit]
+    results = []
+    for article in articles:
+        link_el = article.select_one("a[href]")
+        if not link_el:
+            continue
+        href = link_el.get("href", "")
+        url = f"{BASE_URL}{href}" if href.startswith("/") else href
+        img_el = article.select_one("img[src]")
+        imagen_url = img_el.get("src") if img_el else None
+        title = None
+        for span in article.find_all("span"):
+            txt = span.get_text(strip=True)
+            if len(txt) > 10 and not txt.startswith("$") and not re.match(r"^\d+$", txt):
+                title = txt
+                break
+        if not title:
+            continue
+        price = None
+        for span in article.find_all("span"):
+            txt = span.get_text(strip=True)
+            m = re.match(r"^\$([\d.,]+)$", txt.strip())
+            if m:
+                raw = m.group(1)
+                raw = raw.replace(".", "").replace(",", ".") if "," in raw else raw.replace(".", "")
+                try:
+                    candidate = float(raw)
+                    if price is None or candidate < price:
+                        price = candidate
+                except ValueError:
+                    pass
+        if not price:
+            continue
+        results.append({
+            "title": truncate(title),
+            "url": url,
+            "source": "fravega",
+            "price": price,
+            "currency": "ARS",
+            "imagen_url": imagen_url,
+            "rating": None,
+            "reviews": None,
+        })
     return results
