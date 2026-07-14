@@ -4,9 +4,11 @@
 ---
 
 ## ESTADO GENERAL
-**Fase actual:** Post-deploy — mejoras iterativas  
-**Último paso:** Amazon resuelto con curl_cffi. Frávega diagnosticado (Cloudflare JS challenge). Ver FRAVEGA PENDIENTE abajo.  
-**Próximo paso (próxima sesión):** Elegir opción para Frávega prod (A/B/C) → luego P1 UX (sort, filtros, toasts)
+**Fase actual:** En producción — mantenimiento  
+**Último paso (2026-07-13):** API revivida tras estar caída. Fix SSL asyncpg + nueva DB free en Render (la vieja `trackprice-db`/`dpg-d7mdrc...` fue borrada por Render al expirar el free tier). `/health` y `/categories` verificados OK.  
+**Próximo paso:** Recrear la DB free cuando expire (~2026-08-12) o migrar a Postgres persistente (Supabase). Pendiente aún: elegir opción Frávega prod (A/B/C).
+
+> ⚠️ **DB free de Render expira ~2026-08-12** y será borrada → la API volverá a caer con el mismo síntoma. Solución: crear otra Postgres free y actualizar `DATABASE_URL`, o mover la DB a Supabase (persistente).
 
 ---
 
@@ -123,8 +125,11 @@
 
 ## NOTAS TECNICAS
 
-- DB Render: `dpg-d7mdrc9f9bms73fv2h7g-a` (expira 2026-05-25)
-- Render Service: `srv-d7mjgju8bjmc738cpsd0`
+- DB Render (activa): `pricehunter-db` / `dpg-d9apn067r5hc73984n0g-a`, Oregon, plan Free (**expira ~2026-08-12**)
+- DB Render (vieja, borrada): `trackprice-db` / `dpg-d7mdrc9f9bms73fv2h7g-a` (expiró 2026-05-25)
+- Render Service (API): `srv-d7mjgju8bjmc738cpsd0`
+- `DATABASE_URL`: scheme `postgresql+asyncpg://` apuntando a la **External URL** de la DB (requiere SSL). El valor (con password) vive solo en la env var de Render, nunca en el repo.
+- **SSL/asyncpg:** `backend/db/database.py` pasa un `ssl.SSLContext` explícito para URLs Postgres. Sin esto, arranque falla con `InvalidAuthorizationSpecificationError: SSL/TLS required`. El string `ssl="require"` NO funciona vía el dialecto asyncpg de SQLAlchemy — hace falta un SSLContext real.
 - Amazon scraping: Playwright (local) / httpx fallback (produccion)
 - ML scraping: httpx + html.parser, brotli decompression
 - Windows CRLF issue: .gitattributes resuelve el problema con runtime.txt
@@ -132,6 +137,14 @@
 ---
 
 ## LOG DE SESIONES
+
+### Sesión (2026-07-13) — Revivir API caída
+- Diagnóstico: la API crasheaba en loop al arrancar (`Exited with status 3`) → `SSL/TLS required` de asyncpg
+- Fix 1: `backend/db/database.py` usa `ssl.SSLContext` explícito para Postgres (commit `8216a66`). Antes probé `ssl="require"` (commit `012fef0`) pero NO lo respeta el dialecto asyncpg de SQLAlchemy
+- Causa raíz 2: la DB free `trackprice-db` había sido borrada por Render (expiró 2026-05-25)
+- Fix 2: creada nueva Postgres free `pricehunter-db` (Oregon) y `DATABASE_URL` apuntado a su External URL con scheme `postgresql+asyncpg://`
+- `init()` recreó tablas + sembró 8 categorías al arrancar. Verificado: `/health` = `{"status":"ok","db":"ok"}`, `/categories` = 8 rows
+- ⚠️ Nueva DB free expira ~2026-08-12 (mismo problema volverá)
 
 ### Sesion 1 (2026-04-25)
 - Proyecto planificado, CLAUDE.md y STATUS.md creados
